@@ -11,6 +11,12 @@ fn main() -> Result<()> {
     }
     println!("{} ({:?})", position.horizontal_position * position.depth, position);
 
+    let mut position = Position2::default();
+    for command in &parsed {
+        position.apply(command);
+    }
+    println!("{} ({:?})", position.horizontal_position * position.depth, position);
+
     Ok(())
 }
 
@@ -59,6 +65,26 @@ impl Position {
     }
 }
 
+#[derive(Default, Copy, Clone, Debug, Eq, PartialEq)]
+struct Position2 {
+    depth: i64,
+    horizontal_position: i64,
+    aim: i64,
+}
+
+impl Position2 {
+    fn apply(&mut self, command: &Command) {
+        match command {
+            Command::Down(distance) => { self.aim += distance; },
+            Command::Up(distance) => { self.aim -= distance; },
+            Command::Forward(distance) => {
+                self.horizontal_position += distance;
+                self.depth += self.aim * distance;
+            },
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -72,7 +98,7 @@ mod test {
     }
 
     #[test]
-    fn apply_command() {
+    fn position_apply_command() {
         let mut position = Position::default();
         assert_eq!(position, Position { depth: 0, horizontal_position: 0 });
 
@@ -87,6 +113,21 @@ mod test {
     }
 
     #[test]
+    fn position2_apply_command() {
+        let mut position = Position2::default();
+        assert_eq!(position, Position2 { depth: 0, horizontal_position: 0, aim: 0 });
+
+        position.apply(&Command::Forward(5));
+        assert_eq!(position, Position2 { depth: 0, horizontal_position: 5, aim: 0 });
+
+        position.apply(&Command::Down(5));
+        assert_eq!(position, Position2 { depth: 0, horizontal_position: 5, aim: 5 });
+
+        position.apply(&Command::Forward(8));
+        assert_eq!(position, Position2 { depth: 40, horizontal_position: 13, aim: 5 });
+    }
+
+    #[test]
     fn test_1() -> Result<()> {
         let str = include_str!("example.txt");
         let parsed = parse(str)?;
@@ -95,6 +136,20 @@ mod test {
             position.apply(command);
         }
         assert_eq!(position, Position { depth: 10, horizontal_position: 15 });
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_2() -> Result<()> {
+        let str = include_str!("example.txt");
+        let parsed = parse(str)?;
+        let mut position = Position2::default();
+        for command in &parsed {
+            position.apply(command);
+        }
+        assert_eq!(position.horizontal_position, 15);
+        assert_eq!(position.depth, 60);
 
         Ok(())
     }
