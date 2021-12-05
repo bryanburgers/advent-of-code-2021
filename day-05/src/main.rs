@@ -7,6 +7,8 @@ fn main() -> Result<()> {
     let segments = parse(input)?;
     let solution_a = solve_a(&segments);
     println!("{}", solution_a);
+    let solution_b = solve_b(&segments);
+    println!("{}", solution_b);
     Ok(())
 }
 
@@ -29,6 +31,23 @@ fn solve_a(segments: &[LineSegment]) -> usize {
         .count()
 }
 
+fn solve_b(segments: &[LineSegment]) -> usize {
+    let mut points_seen = HashMap::new();
+    for segment in segments {
+        for point in segment.points() {
+            points_seen
+                .entry(point)
+                .and_modify(|v| *v += 1)
+                .or_insert(1_usize);
+        }
+    }
+
+    points_seen
+        .into_iter()
+        .filter(|(_point, seen)| *seen > 1)
+        .count()
+}
+
 fn parse(s: &str) -> Result<Vec<LineSegment>> {
     s.lines()
         .map(|s| s.parse::<LineSegment>().map_err(Into::into))
@@ -37,8 +56,8 @@ fn parse(s: &str) -> Result<Vec<LineSegment>> {
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 struct Point {
-    x: usize,
-    y: usize,
+    x: i32,
+    y: i32,
 }
 
 impl FromStr for Point {
@@ -104,26 +123,33 @@ impl Iterator for PointsIterator {
             self.done = true;
             return Some(self.start);
         }
-        if self.start.x == self.end.x {
-            let ret = self.start;
-            if self.start.y > self.end.y {
-                self.start.y -= 1;
-            } else {
-                self.start.y += 1;
-            }
-            return Some(ret);
-        }
-        if self.start.y == self.end.y {
-            let ret = self.start;
-            if self.start.x > self.end.x {
-                self.start.x -= 1;
-            } else {
-                self.start.x += 1;
-            }
-            return Some(ret);
+
+        if self.start.x == self.end.x
+            || self.start.y == self.end.y
+            || (self.start.x - self.end.x).abs() == (self.start.y - self.end.y).abs()
+        {
+        } else {
+            panic!(
+                "Not horizontal, vertical, or perfectly diagonal. {:?} {:?}",
+                self.start, self.end
+            );
         }
 
-        panic!("iterator is not horizontal or vertical");
+        let ret = self.start;
+
+        if self.start.y > self.end.y {
+            self.start.y -= 1;
+        } else if self.start.y < self.end.y {
+            self.start.y += 1;
+        }
+
+        if self.start.x > self.end.x {
+            self.start.x -= 1;
+        } else if self.start.x < self.end.x {
+            self.start.x += 1;
+        }
+
+        return Some(ret);
     }
 }
 
@@ -205,9 +231,49 @@ mod tests {
     }
 
     #[test]
+    fn points_diagonal() {
+        let subject = LineSegment {
+            start: Point { x: 1, y: 1 },
+            end: Point { x: 3, y: 3 },
+        };
+
+        let points = subject.points().collect::<Vec<_>>();
+        assert_eq!(
+            points,
+            vec![
+                Point { x: 1, y: 1 },
+                Point { x: 2, y: 2 },
+                Point { x: 3, y: 3 },
+            ]
+        );
+
+        let subject = LineSegment {
+            start: Point { x: 9, y: 7 },
+            end: Point { x: 7, y: 9 },
+        };
+
+        let points = subject.points().collect::<Vec<_>>();
+        assert_eq!(
+            points,
+            vec![
+                Point { x: 9, y: 7 },
+                Point { x: 8, y: 8 },
+                Point { x: 7, y: 9 },
+            ]
+        );
+    }
+
+    #[test]
     fn test_a() {
         let input = include_str!("example.txt");
         let input = parse(input).unwrap();
         assert_eq!(solve_a(&input), 5);
+    }
+
+    #[test]
+    fn test_b() {
+        let input = include_str!("example.txt");
+        let input = parse(input).unwrap();
+        assert_eq!(solve_b(&input), 12);
     }
 }
