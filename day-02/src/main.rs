@@ -9,13 +9,21 @@ fn main() -> Result<()> {
     for command in &parsed {
         position.apply(command);
     }
-    println!("{} ({:?})", position.horizontal_position * position.depth, position);
+    println!(
+        "{} ({:?})",
+        position.horizontal_position * position.depth,
+        position
+    );
 
     let mut position = Position2::default();
     for command in &parsed {
         position.apply(command);
     }
-    println!("{} ({:?})", position.horizontal_position * position.depth, position);
+    println!(
+        "{} ({:?})",
+        position.horizontal_position * position.depth,
+        position
+    );
 
     Ok(())
 }
@@ -39,7 +47,9 @@ impl FromStr for Command {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let (command, distance) = s.split_once(" ").ok_or("no space found")?;
-        let distance = distance.parse::<i64>().map_err(|_| "distance was not a number")?;
+        let distance = distance
+            .parse::<i64>()
+            .map_err(|_| "distance was not a number")?;
         match command {
             "forward" => Ok(Command::Forward(distance)),
             "down" => Ok(Command::Down(distance)),
@@ -58,9 +68,15 @@ struct Position {
 impl Position {
     fn apply(&mut self, command: &Command) {
         match command {
-            Command::Down(distance) => { self.depth += distance; }
-            Command::Up(distance) => { self.depth -= distance; }
-            Command::Forward(distance) => { self.horizontal_position += distance; }
+            Command::Down(distance) => {
+                self.depth += distance;
+            }
+            Command::Up(distance) => {
+                self.depth -= distance;
+            }
+            Command::Forward(distance) => {
+                self.horizontal_position += distance;
+            }
         }
     }
 }
@@ -75,12 +91,16 @@ struct Position2 {
 impl Position2 {
     fn apply(&mut self, command: &Command) {
         match command {
-            Command::Down(distance) => { self.aim += distance; },
-            Command::Up(distance) => { self.aim -= distance; },
+            Command::Down(distance) => {
+                self.aim += distance;
+            }
+            Command::Up(distance) => {
+                self.aim -= distance;
+            }
             Command::Forward(distance) => {
                 self.horizontal_position += distance;
                 self.depth += self.aim * distance;
-            },
+            }
         }
     }
 }
@@ -100,31 +120,83 @@ mod test {
     #[test]
     fn position_apply_command() {
         let mut position = Position::default();
-        assert_eq!(position, Position { depth: 0, horizontal_position: 0 });
+        assert_eq!(
+            position,
+            Position {
+                depth: 0,
+                horizontal_position: 0
+            }
+        );
 
         position.apply(&Command::Forward(6));
-        assert_eq!(position, Position { depth: 0, horizontal_position: 6 });
+        assert_eq!(
+            position,
+            Position {
+                depth: 0,
+                horizontal_position: 6
+            }
+        );
 
         position.apply(&Command::Down(5));
-        assert_eq!(position, Position { depth: 5, horizontal_position: 6 });
+        assert_eq!(
+            position,
+            Position {
+                depth: 5,
+                horizontal_position: 6
+            }
+        );
 
         position.apply(&Command::Up(3));
-        assert_eq!(position, Position { depth: 2, horizontal_position: 6 });
+        assert_eq!(
+            position,
+            Position {
+                depth: 2,
+                horizontal_position: 6
+            }
+        );
     }
 
     #[test]
     fn position2_apply_command() {
         let mut position = Position2::default();
-        assert_eq!(position, Position2 { depth: 0, horizontal_position: 0, aim: 0 });
+        assert_eq!(
+            position,
+            Position2 {
+                depth: 0,
+                horizontal_position: 0,
+                aim: 0
+            }
+        );
 
         position.apply(&Command::Forward(5));
-        assert_eq!(position, Position2 { depth: 0, horizontal_position: 5, aim: 0 });
+        assert_eq!(
+            position,
+            Position2 {
+                depth: 0,
+                horizontal_position: 5,
+                aim: 0
+            }
+        );
 
         position.apply(&Command::Down(5));
-        assert_eq!(position, Position2 { depth: 0, horizontal_position: 5, aim: 5 });
+        assert_eq!(
+            position,
+            Position2 {
+                depth: 0,
+                horizontal_position: 5,
+                aim: 5
+            }
+        );
 
         position.apply(&Command::Forward(8));
-        assert_eq!(position, Position2 { depth: 40, horizontal_position: 13, aim: 5 });
+        assert_eq!(
+            position,
+            Position2 {
+                depth: 40,
+                horizontal_position: 13,
+                aim: 5
+            }
+        );
     }
 
     #[test]
@@ -135,7 +207,13 @@ mod test {
         for command in &parsed {
             position.apply(command);
         }
-        assert_eq!(position, Position { depth: 10, horizontal_position: 15 });
+        assert_eq!(
+            position,
+            Position {
+                depth: 10,
+                horizontal_position: 15
+            }
+        );
 
         Ok(())
     }
