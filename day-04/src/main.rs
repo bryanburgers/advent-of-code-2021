@@ -11,6 +11,8 @@ const BOARDS: &[bingo_board::BingoBoard] = input::BOARDS;
 fn main() {
     let solution_a = solve_a(CALLS, BOARDS);
     println!("{}", solution_a);
+    let solution_b = solve_b(CALLS, BOARDS);
+    println!("{}", solution_b);
 }
 
 const fn solve_a(calls: &[u8], boards: &[bingo_board::BingoBoard]) -> usize {
@@ -24,6 +26,33 @@ const fn solve_a(calls: &[u8], boards: &[bingo_board::BingoBoard]) -> usize {
         let e = game.play(calls);
         if let Some(ref outer_endgame) = endgame {
             if e.turns < outer_endgame.turns {
+                endgame = Some(e);
+            }
+        } else {
+            endgame = Some(e)
+        }
+
+        i += 1;
+    }
+
+    if let Some(endgame) = endgame {
+        endgame.last_call as usize * endgame.unmarked_sum as usize
+    } else {
+        panic!("None found");
+    }
+}
+
+const fn solve_b(calls: &[u8], boards: &[bingo_board::BingoBoard]) -> usize {
+    let mut endgame: Option<bingo_game::Endgame> = None;
+
+    let len = boards.len();
+    let mut i = 0;
+    while i < len {
+        let board = &boards[i];
+        let game = bingo_game::BingoGame::new(board);
+        let e = game.play(calls);
+        if let Some(ref outer_endgame) = endgame {
+            if e.turns > outer_endgame.turns {
                 endgame = Some(e);
             }
         } else {
