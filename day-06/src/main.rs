@@ -13,9 +13,12 @@ const INPUT: &[usize] = &[
 const INITIAL: LaternfishSchool = LaternfishSchool::from_fish(INPUT);
 const AFTER_80_GENERATIONS: LaternfishSchool = INITIAL.generations(80);
 const SOLUTION_A: usize = AFTER_80_GENERATIONS.count();
+const AFTER_256_GENERATIONS: LaternfishSchool = INITIAL.generations(256);
+const SOLUTION_B: usize = AFTER_256_GENERATIONS.count();
 
 fn main() {
     println!("{}", SOLUTION_A);
+    println!("{}", SOLUTION_B);
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -86,5 +89,6 @@ mod tests {
         assert_eq!(gen_0.generations(2), gen_2);
         assert_eq!(gen_0.generations(18), gen_18);
         assert_eq!(gen_0.generations(80).count(), 5934);
+        assert_eq!(gen_0.generations(256).count(), 26984457539);
     }
 }
