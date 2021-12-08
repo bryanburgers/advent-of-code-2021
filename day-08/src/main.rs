@@ -7,6 +7,8 @@ fn main() -> Result<()> {
     let input = parse(input)?;
     let count = solve_a(&input);
     println!("{}", count);
+    let sum = solve_b(&input);
+    println!("{}", sum);
 
     Ok(())
 }
@@ -28,6 +30,14 @@ fn solve_a(input: &[Input]) -> usize {
         }
     }
     count
+}
+
+fn solve_b(input: &[Input]) -> usize {
+    let mut sum = 0;
+    for item in input {
+        sum += item.deduce_output();
+    }
+    sum
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
@@ -97,6 +107,25 @@ impl SignalPattern {
     fn is_counted_in_part_a(&self) -> bool {
         self.is_one() || self.is_four() || self.is_seven() || self.is_eight()
     }
+    // fn wires(&self) -> Vec<SignalWire> {
+    //     self.signals.iter().copied().collect()
+    // }
+    // fn not_wires(&self) -> Vec<SignalWire> {
+    //     let wires = vec![
+    //         SignalWire::A,
+    //         SignalWire::B,
+    //         SignalWire::C,
+    //         SignalWire::D,
+    //         SignalWire::E,
+    //         SignalWire::F,
+    //         SignalWire::G,
+    //     ];
+
+    //     wires
+    //         .into_iter()
+    //         .filter(|w| self.signals.contains(w))
+    //         .collect()
+    // }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -122,6 +151,215 @@ impl FromStr for SignalPattern {
 struct Input {
     unique_patterns: [SignalPattern; 10],
     output: [SignalPattern; 4],
+}
+
+impl Input {
+    fn find_one<F>(&self, f: F) -> &SignalPattern
+    where
+        F: Fn(&SignalPattern) -> bool,
+    {
+        for pattern in &self.unique_patterns {
+            if f(pattern) {
+                return pattern;
+            }
+        }
+        panic!("Not found");
+    }
+    fn find_many<F>(&self, f: F) -> Vec<&SignalPattern>
+    where
+        F: Fn(&SignalPattern) -> bool,
+    {
+        self.unique_patterns
+            .as_slice()
+            .iter()
+            .filter(|v| f(*v))
+            .collect()
+    }
+
+    fn determine_segments(&self) -> SegmentMap {
+        let all_wires = HashSet::from([
+            SignalWire::A,
+            SignalWire::B,
+            SignalWire::C,
+            SignalWire::D,
+            SignalWire::E,
+            SignalWire::F,
+            SignalWire::G,
+        ]);
+
+        let mut top = all_wires.clone();
+        let mut top_left = all_wires.clone();
+        let mut top_right = all_wires.clone();
+        let mut middle = all_wires.clone();
+        let mut bottom_left = all_wires.clone();
+        let mut bottom_right = all_wires.clone();
+        let mut bottom = all_wires.clone();
+
+        let signal_pattern_one = self.find_one(|pattern| pattern.is_one());
+        let signal_pattern_seven = self.find_one(|pattern| pattern.is_seven());
+        let signal_pattern_four = self.find_one(|pattern| pattern.is_four());
+
+        // We know 1, so apply it.
+        for wire in &all_wires {
+            if signal_pattern_one.contains(*wire) {
+                top.remove(wire);
+                top_left.remove(wire);
+                middle.remove(wire);
+                bottom_left.remove(wire);
+                bottom.remove(wire);
+            } else {
+                top_right.remove(wire);
+                bottom_right.remove(wire);
+            }
+        }
+
+        // At this point, the right two segments should have 2 options
+        assert_eq!(
+            top_right.len(),
+            2,
+            "at this point, the right two segments should have 2 options (top)"
+        );
+        assert_eq!(
+            bottom_right.len(),
+            2,
+            "at this point, the right two segments should have 2 options (bottom)"
+        );
+
+        // We know 7, so apply it.
+        for wire in &all_wires {
+            if signal_pattern_seven.contains(*wire) {
+                top_left.remove(wire);
+                middle.remove(wire);
+                bottom_left.remove(wire);
+                bottom.remove(wire);
+            } else {
+                top.remove(wire);
+                top_right.remove(wire);
+                bottom_right.remove(wire);
+            }
+        }
+
+        // At this point, the top segment should be unique
+        assert_eq!(
+            top.len(),
+            1,
+            "At this point, the top segment should be unique"
+        );
+        // And the right two segments should still be have 2 options
+        assert_eq!(
+            top_right.len(),
+            2,
+            "and the right two segments should still have 2 options (top)"
+        );
+        assert_eq!(
+            bottom_right.len(),
+            2,
+            "and the right two segments should still have 2 options (bottom)"
+        );
+
+        // We know 4, so apply it.
+        for wire in &all_wires {
+            if signal_pattern_four.contains(*wire) {
+                top.remove(wire);
+                bottom_left.remove(wire);
+                bottom.remove(wire);
+            } else {
+                top_left.remove(wire);
+                top_right.remove(wire);
+                middle.remove(wire);
+                bottom_right.remove(wire);
+            }
+        }
+
+        assert_eq!(
+            bottom_left.len(),
+            2,
+            "At this point, there should only be two options remaining for the bottom left segment"
+        );
+
+        // We can use this to determine which of the signal patterns is the 2.
+        // - There are three signal patterns with 5 signals set: 2, 3, 5
+        // - Both the 3 and the 5 do not have the bottom left segment set; the 2 does.
+        let signal_pattern_235 = self.find_many(|pattern| pattern.signals_set() == 5);
+        let signal_wire_0 = *bottom_left.iter().nth(0).unwrap();
+        let signal_wire_1 = *bottom_left.iter().nth(1).unwrap();
+        let signal_wire_0_matches = signal_pattern_235
+            .iter()
+            .filter(|pattern| pattern.contains(signal_wire_0))
+            .cloned()
+            .collect::<Vec<_>>();
+        let signal_wire_1_matches = signal_pattern_235
+            .iter()
+            .filter(|pattern| pattern.contains(signal_wire_1))
+            .cloned()
+            .collect::<Vec<_>>();
+
+        assert!(
+            (signal_wire_0_matches.len() == 1 && signal_wire_1_matches.len() == 3)
+                || (signal_wire_0_matches.len() == 3 && signal_wire_1_matches.len() == 1),
+            "One of these should have 1 match, one should have 3"
+        );
+
+        let signal_wire_bottom_left: SignalWire;
+        let signal_wire_not_bottom_left: SignalWire;
+        let signal_pattern_two: &SignalPattern;
+        if signal_wire_0_matches.len() == 1 {
+            signal_wire_bottom_left = signal_wire_0;
+            signal_wire_not_bottom_left = signal_wire_1;
+            signal_pattern_two = signal_wire_0_matches.into_iter().next().unwrap();
+        } else {
+            signal_wire_bottom_left = signal_wire_1;
+            signal_wire_not_bottom_left = signal_wire_0;
+            signal_pattern_two = signal_wire_1_matches.into_iter().next().unwrap();
+        };
+
+        // And now apply the 2
+        for wire in &all_wires {
+            if signal_pattern_two.contains(*wire) {
+                top_left.remove(wire);
+                bottom_right.remove(wire);
+            } else {
+                top.remove(wire);
+                top_right.remove(wire);
+                middle.remove(wire);
+                bottom_left.remove(wire);
+                bottom.remove(wire);
+            }
+        }
+
+        // And apply which wire we know is bottom left
+        bottom_left.remove(&signal_wire_not_bottom_left);
+        bottom.remove(&signal_wire_bottom_left);
+
+        assert_eq!(top.len(), 1);
+        assert_eq!(top_left.len(), 1);
+        assert_eq!(top_right.len(), 1);
+        assert_eq!(middle.len(), 1);
+        assert_eq!(bottom_left.len(), 1);
+        assert_eq!(bottom_right.len(), 1);
+        assert_eq!(bottom.len(), 1);
+
+        SegmentMap {
+            top: top.into_iter().next().unwrap(),
+            top_left: top_left.into_iter().next().unwrap(),
+            top_right: top_right.into_iter().next().unwrap(),
+            middle: middle.into_iter().next().unwrap(),
+            bottom_left: bottom_left.into_iter().next().unwrap(),
+            bottom_right: bottom_right.into_iter().next().unwrap(),
+            bottom: bottom.into_iter().next().unwrap(),
+        }
+    }
+
+    fn deduce_output(&self) -> usize {
+        let signal_map = self.determine_segments();
+
+        let mut val = 0;
+        val += signal_map.to_number(&self.output[0]).unwrap() * 1000;
+        val += signal_map.to_number(&self.output[1]).unwrap() * 100;
+        val += signal_map.to_number(&self.output[2]).unwrap() * 10;
+        val += signal_map.to_number(&self.output[3]).unwrap() * 1;
+        val
+    }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -238,6 +476,123 @@ impl FromStr for Input {
     }
 }
 
+#[derive(Debug)]
+struct SegmentMap {
+    top: SignalWire,
+    top_left: SignalWire,
+    top_right: SignalWire,
+    middle: SignalWire,
+    bottom_left: SignalWire,
+    bottom_right: SignalWire,
+    bottom: SignalWire,
+}
+
+impl SegmentMap {
+    fn to_number(&self, pattern: &SignalPattern) -> Option<usize> {
+        let all = HashSet::from([
+            self.top,
+            self.top_left,
+            self.top_right,
+            self.middle,
+            self.bottom_left,
+            self.bottom_right,
+            self.bottom,
+        ]);
+        let numbers = [
+            /* 0 */
+            HashSet::from([
+                self.top,
+                self.top_left,
+                self.top_right,
+                self.bottom_left,
+                self.bottom_right,
+                self.bottom,
+            ]),
+            /* 1 */
+            HashSet::from([self.top_right, self.bottom_right]),
+            /* 2 */
+            HashSet::from([
+                self.top,
+                self.top_right,
+                self.middle,
+                self.bottom_left,
+                self.bottom,
+            ]),
+            /* 3 */
+            HashSet::from([
+                self.top,
+                self.top_right,
+                self.middle,
+                self.bottom_right,
+                self.bottom,
+            ]),
+            /* 4 */
+            HashSet::from([
+                self.top_left,
+                self.top_right,
+                self.middle,
+                self.bottom_right,
+            ]),
+            /* 5 */
+            HashSet::from([
+                self.top,
+                self.top_left,
+                self.middle,
+                self.bottom_right,
+                self.bottom,
+            ]),
+            /* 6 */
+            HashSet::from([
+                self.top,
+                self.top_left,
+                self.middle,
+                self.bottom_left,
+                self.bottom_right,
+                self.bottom,
+            ]),
+            /* 7 */
+            HashSet::from([self.top, self.top_right, self.bottom_right]),
+            /* 8 */
+            HashSet::from([
+                self.top,
+                self.top_left,
+                self.top_right,
+                self.middle,
+                self.bottom_left,
+                self.bottom_right,
+                self.bottom,
+            ]),
+            /* 9 */
+            HashSet::from([
+                self.top,
+                self.top_left,
+                self.top_right,
+                self.middle,
+                self.bottom_right,
+                self.bottom,
+            ]),
+        ];
+
+        'outer: for i in 0..=9 {
+            let positive = &numbers[i];
+            let negative = all.difference(positive);
+            for v in positive {
+                if !pattern.contains(*v) {
+                    continue 'outer;
+                }
+            }
+            for v in negative {
+                if pattern.contains(*v) {
+                    continue 'outer;
+                }
+            }
+            return Some(i);
+        }
+
+        None
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -283,6 +638,33 @@ mod tests {
         let input = parse(input)?;
         let count = solve_a(&input);
         assert_eq!(count, 26);
+        Ok(())
+    }
+
+    #[test]
+    fn test_determine_segments() {
+        let input =
+            "acedgfb cdfbe gcdfa fbcad dab cefabd cdfgeb eafb cagedb ab | cdfeb fcadb cdfeb cdbaf";
+        let input = input.parse::<Input>().expect("Valid parse");
+        let segment_map = input.determine_segments();
+
+        assert_eq!(segment_map.top, SignalWire::D);
+        assert_eq!(segment_map.top_left, SignalWire::E);
+        assert_eq!(segment_map.top_right, SignalWire::A);
+        assert_eq!(segment_map.middle, SignalWire::F);
+        assert_eq!(segment_map.bottom_left, SignalWire::G);
+        assert_eq!(segment_map.bottom_right, SignalWire::B);
+        assert_eq!(segment_map.bottom, SignalWire::C);
+
+        assert_eq!(input.deduce_output(), 5353);
+    }
+
+    #[test]
+    fn part_b() -> Result<()> {
+        let input = include_str!("example.txt");
+        let input = parse(input)?;
+        let sum = solve_b(&input);
+        assert_eq!(sum, 61229);
         Ok(())
     }
 }
