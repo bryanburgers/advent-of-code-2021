@@ -1,4 +1,8 @@
-use std::{collections::VecDeque, ops::Index, str::FromStr};
+use std::{
+    collections::{HashMap, VecDeque},
+    ops::Index,
+    str::FromStr,
+};
 
 type Result<T, E = Box<dyn std::error::Error>> = std::result::Result<T, E>;
 
@@ -6,6 +10,9 @@ fn main() -> Result<()> {
     let input = include_str!("input.txt");
     let cave = input.parse::<Cave>().unwrap();
     let result = solve_a(&cave);
+    println!("{}", result);
+
+    let result = solve_b(&cave);
     println!("{}", result);
 
     Ok(())
@@ -19,6 +26,23 @@ fn solve_a(cave: &Cave) -> usize {
         }
     }
     sum
+}
+
+fn solve_b(cave: &Cave) -> usize {
+    let mut basins: HashMap<Coordinate, usize> = HashMap::new();
+
+    for coordinate in cave.all() {
+        if let Some(basin) = cave.basin_point(coordinate) {
+            basins.entry(basin).and_modify(|v| *v += 1).or_insert(1);
+        }
+    }
+
+    let mut basins: Vec<usize> = basins.into_values().collect();
+    basins.sort_by(|a, b| a.cmp(b).reverse());
+
+    assert!(basins.len() > 3);
+
+    basins[0] * basins[1] * basins[2]
 }
 
 struct Cave {
@@ -100,6 +124,31 @@ impl Cave {
 
     pub fn risk_level(&self, coordinate: Coordinate) -> usize {
         self[coordinate] as usize + 1
+    }
+
+    pub fn basin_point(&self, coordinate: Coordinate) -> Option<Coordinate> {
+        fn flow_to(cave: &Cave, coordinate: Coordinate) -> Option<Coordinate> {
+            for neighbor in cave.neighbors(coordinate) {
+                if cave[neighbor] < cave[coordinate] {
+                    return Some(neighbor);
+                }
+            }
+            None
+        }
+
+        if self[coordinate] == 9 {
+            return None;
+        }
+
+        let mut coordinate = coordinate;
+        loop {
+            if let Some(c) = flow_to(self, coordinate) {
+                coordinate = c;
+                continue;
+            } else {
+                return Some(coordinate);
+            }
+        }
     }
 }
 
@@ -259,5 +308,37 @@ mod tests {
         let input = "99\n90";
         let cave = input.parse::<Cave>().unwrap();
         assert!(!cave.is_lowpoint(Coordinate::new(0, 0)));
+    }
+
+    #[test]
+    fn test_basin_point() {
+        let input = include_str!("example.txt");
+        let cave = input.parse::<Cave>().unwrap();
+
+        // The lowpoint in the top right is its own basin point
+        assert_eq!(
+            cave.basin_point(Coordinate::new(1, 0)),
+            Some(Coordinate::new(1, 0))
+        );
+        // The other two points that make up the basin have the sam basin point
+        assert_eq!(
+            cave.basin_point(Coordinate::new(0, 0)),
+            Some(Coordinate::new(1, 0))
+        );
+        assert_eq!(
+            cave.basin_point(Coordinate::new(0, 1)),
+            Some(Coordinate::new(1, 0))
+        );
+
+        // The 9 near that basin does not have a basin point
+        assert_eq!(cave.basin_point(Coordinate::new(2, 0)), None)
+    }
+
+    #[test]
+    fn test_solve_b() {
+        let input = include_str!("example.txt");
+        let cave = input.parse::<Cave>().unwrap();
+        let result = solve_b(&cave);
+        assert_eq!(result, 1134);
     }
 }
