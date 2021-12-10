@@ -2,19 +2,37 @@ fn main() {
     let input = include_str!("input.txt");
     let result = solve_a(input);
     println!("{}", result);
+    let result = solve_b(input);
+    println!("{}", result);
 }
 
 fn solve_a(input: &str) -> usize {
     let mut score = 0;
     for line in input.lines() {
-        match Parser::parse(line) {
+        let mut parser = Parser::default();
+        match parser.parse(line) {
             Err(ParseError::InvalidBracket { found, .. }) => {
-                score += found.score();
+                score += found.mismatched_score();
             }
             _ => {}
         }
     }
     score
+}
+
+fn solve_b(input: &str) -> usize {
+    let mut scores = Vec::new();
+    for line in input.lines() {
+        let mut parser = Parser::default();
+        match parser.parse(line) {
+            Err(ParseError::UnexpectedEof { .. }) => {
+                scores.push(parser.autocomplete());
+            }
+            _ => {}
+        }
+    }
+    scores.sort();
+    scores[scores.len() / 2]
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -50,12 +68,21 @@ enum Bracket {
 }
 
 impl Bracket {
-    fn score(&self) -> usize {
+    fn mismatched_score(&self) -> usize {
         match self {
             Self::Round => 3,
             Self::Square => 57,
             Self::Curly => 1197,
             Self::Angle => 25137,
+        }
+    }
+
+    fn unconsumed_score(&self) -> usize {
+        match self {
+            Self::Round => 1,
+            Self::Square => 2,
+            Self::Curly => 3,
+            Self::Angle => 4,
         }
     }
 }
@@ -81,13 +108,12 @@ struct Parser {
 }
 
 impl Parser {
-    fn parse(input: &str) -> Result<(), ParseError> {
-        let mut parser = Parser::default();
+    fn parse(&mut self, input: &str) -> Result<(), ParseError> {
         for (idx, c) in input.char_indices() {
             let token = Token::from(c);
-            parser.consume(idx, token)?;
+            self.consume(idx, token)?;
         }
-        parser.consume(input.len(), Token::Eof)?;
+        self.consume(input.len(), Token::Eof)?;
         Ok(())
     }
 
@@ -110,11 +136,19 @@ impl Parser {
                 Some(_) => Ok(()),
             },
             Token::Other(char) => Err(ParseError::UnexpectedChar { char }),
-            Token::Eof => match self.stack.pop() {
+            Token::Eof => match self.stack.last() {
                 None => Ok(()),
-                Some(bracket) => Err(ParseError::UnexpectedEof { expected: bracket }),
+                Some(bracket) => Err(ParseError::UnexpectedEof { expected: *bracket }),
             },
         }
+    }
+
+    fn autocomplete(&mut self) -> usize {
+        let mut total = 0;
+        while let Some(bracket) = self.stack.pop() {
+            total = total * 5 + bracket.unconsumed_score()
+        }
+        total
     }
 }
 
@@ -124,14 +158,14 @@ mod tests {
 
     #[test]
     fn test_parse() {
-        assert!(Parser::parse("([])").is_ok());
-        assert!(Parser::parse("{()()()}").is_ok());
-        assert!(Parser::parse("<([{}])>").is_ok());
-        assert!(Parser::parse("[<>({}){}[([])<>]]").is_ok());
-        assert!(Parser::parse("(((((((((())))))))))").is_ok());
+        assert!(Parser::default().parse("([])").is_ok());
+        assert!(Parser::default().parse("{()()()}").is_ok());
+        assert!(Parser::default().parse("<([{}])>").is_ok());
+        assert!(Parser::default().parse("[<>({}){}[([])<>]]").is_ok());
+        assert!(Parser::default().parse("(((((((((())))))))))").is_ok());
 
         assert_eq!(
-            Parser::parse("(]"),
+            Parser::default().parse("(]"),
             Err(ParseError::InvalidBracket {
                 expected: Bracket::Round,
                 found: Bracket::Square
@@ -144,5 +178,25 @@ mod tests {
         let input = include_str!("example.txt");
         let result = solve_a(input);
         assert_eq!(result, 26397);
+    }
+
+    #[test]
+    fn test_autocomplete() {
+        let mut parser = Parser::default();
+        let result = parser.parse("[({(<(())[]>[[{[]{<()<>>");
+        assert_eq!(
+            result,
+            Err(ParseError::UnexpectedEof {
+                expected: Bracket::Curly
+            })
+        );
+        assert_eq!(parser.autocomplete(), 288957);
+    }
+
+    #[test]
+    fn test_solve_b() {
+        let input = include_str!("example.txt");
+        let result = solve_b(input);
+        assert_eq!(result, 288957);
     }
 }
