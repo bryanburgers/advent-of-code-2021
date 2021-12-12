@@ -13,8 +13,21 @@ fn main() {
         [8, 6, 2, 1, 3, 6, 8, 7, 8, 2],
         [3, 2, 4, 6, 3, 3, 6, 6, 7, 7],
     ]);
+    let input_b = input.clone();
     let flashes = input.steps(100);
     println!("{}", flashes);
+    let steps = solve_b(input_b);
+    println!("{}", steps);
+}
+
+fn solve_b<const C: usize>(mut input: OctopusPod<C>) -> usize {
+    for i in 1.. {
+        let val = input.step();
+        if val == C * C {
+            return i;
+        }
+    }
+    0
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -63,7 +76,7 @@ impl Debug for Octopus {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 struct OctopusPod<const C: usize> {
     octopuses: [[Octopus; C]; C],
 }
@@ -464,5 +477,24 @@ mod tests {
         let flashes = subject.steps(100);
         assert_eq!(flashes, 1656);
         assert_eq!(subject, step_10);
+    }
+
+    #[test]
+    fn solve_part_b() {
+        let subject = OctopusPod::from([
+            [5, 4, 8, 3, 1, 4, 3, 2, 2, 3],
+            [2, 7, 4, 5, 8, 5, 4, 7, 1, 1],
+            [5, 2, 6, 4, 5, 5, 6, 1, 7, 3],
+            [6, 1, 4, 1, 3, 3, 6, 1, 4, 6],
+            [6, 3, 5, 7, 3, 8, 5, 4, 7, 8],
+            [4, 1, 6, 7, 5, 2, 4, 6, 4, 5],
+            [2, 1, 7, 6, 8, 4, 1, 7, 2, 1],
+            [6, 8, 8, 2, 8, 8, 1, 1, 3, 4],
+            [4, 8, 4, 6, 8, 4, 8, 5, 5, 4],
+            [5, 2, 8, 3, 7, 5, 1, 5, 2, 6],
+        ]);
+
+        let result = solve_b(subject);
+        assert_eq!(result, 195);
     }
 }
