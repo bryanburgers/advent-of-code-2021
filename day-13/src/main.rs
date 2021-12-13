@@ -2,9 +2,14 @@ use std::{collections::HashSet, fmt::Display, str::FromStr};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let input = include_str!("input.txt");
-    let (paper, folds) = Paper::parse(input)?;
+    let (mut paper, folds) = Paper::parse(input)?;
     let after_first_fold = paper.fold(folds[0]);
     println!("{}", after_first_fold.marks.len());
+
+    for fold in folds {
+        paper = paper.fold(fold);
+    }
+    println!("{}", paper);
 
     Ok(())
 }
