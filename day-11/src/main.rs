@@ -60,8 +60,14 @@ impl Octopus {
 
     pub fn inc(&mut self) -> bool {
         match self {
-            Self::PowerLevel(v) if *v >= 9 => { *self = Self::HasFlashed; true },
-            Self::PowerLevel(v) => { *self = Self::PowerLevel(*v + 1); false },
+            Self::PowerLevel(v) if *v >= 9 => {
+                *self = Self::HasFlashed;
+                true
+            }
+            Self::PowerLevel(v) => {
+                *self = Self::PowerLevel(*v + 1);
+                false
+            }
             Self::HasFlashed => false,
         }
     }
@@ -126,9 +132,7 @@ impl<const C: usize> From<[[u8; C]; C]> for OctopusPod<C> {
                 octopuses[y][x] = Octopus::from_u8(val[y][x]);
             }
         }
-        Self {
-            octopuses
-        }
+        Self { octopuses }
     }
 }
 
@@ -145,36 +149,44 @@ impl<const C: usize> Coordinate<C> {
 
     fn left(&self) -> Option<Self> {
         if self.x > 0 {
-            Some(Self { x: self.x - 1, y: self.y })
-        }
-        else {
+            Some(Self {
+                x: self.x - 1,
+                y: self.y,
+            })
+        } else {
             None
         }
     }
 
     fn right(&self) -> Option<Self> {
         if self.x + 1 < C {
-            Some(Self { x: self.x + 1, y: self.y })
-        }
-        else {
+            Some(Self {
+                x: self.x + 1,
+                y: self.y,
+            })
+        } else {
             None
         }
     }
 
     fn up(&self) -> Option<Self> {
         if self.y > 0 {
-            Some(Self { x: self.x, y: self.y - 1 })
-        }
-        else {
+            Some(Self {
+                x: self.x,
+                y: self.y - 1,
+            })
+        } else {
             None
         }
     }
 
     fn down(&self) -> Option<Self> {
         if self.y + 1 < C {
-            Some(Self { x: self.x, y: self.y + 1 })
-        }
-        else {
+            Some(Self {
+                x: self.x,
+                y: self.y + 1,
+            })
+        } else {
             None
         }
     }
@@ -256,22 +268,38 @@ impl<const C: usize> Iterator for NeighborsIterator<C> {
                     }
                 }
                 IteratorDirection::UpLeft => {
-                    if let Some(coordinate) = self.coordinate.up().and_then(|coordinate| coordinate.left()) {
+                    if let Some(coordinate) = self
+                        .coordinate
+                        .up()
+                        .and_then(|coordinate| coordinate.left())
+                    {
                         return Some(coordinate);
                     }
                 }
                 IteratorDirection::UpRight => {
-                    if let Some(coordinate) = self.coordinate.up().and_then(|coordinate| coordinate.right()) {
+                    if let Some(coordinate) = self
+                        .coordinate
+                        .up()
+                        .and_then(|coordinate| coordinate.right())
+                    {
                         return Some(coordinate);
                     }
                 }
                 IteratorDirection::DownLeft => {
-                    if let Some(coordinate) = self.coordinate.down().and_then(|coordinate| coordinate.left()) {
+                    if let Some(coordinate) = self
+                        .coordinate
+                        .down()
+                        .and_then(|coordinate| coordinate.left())
+                    {
                         return Some(coordinate);
                     }
                 }
                 IteratorDirection::DownRight => {
-                    if let Some(coordinate) = self.coordinate.down().and_then(|coordinate| coordinate.right()) {
+                    if let Some(coordinate) = self
+                        .coordinate
+                        .down()
+                        .and_then(|coordinate| coordinate.right())
+                    {
                         return Some(coordinate);
                     }
                 }
@@ -287,7 +315,7 @@ struct AllIterator<const C: usize> {
     next_y: usize,
 }
 
-impl<const C:usize> AllIterator<C> {
+impl<const C: usize> AllIterator<C> {
     fn new() -> Self {
         Self {
             next_x: 0,
@@ -304,15 +332,13 @@ impl<const C: usize> Iterator for AllIterator<C> {
             let coordinate = Coordinate::new_unchecked(self.next_x, self.next_y);
             self.next_x += 1;
             Some(coordinate)
-        }
-        else if self.next_y + 1 < C {
+        } else if self.next_y + 1 < C {
             self.next_x = 0;
             self.next_y += 1;
             let coordinate = Coordinate::new_unchecked(self.next_x, self.next_y);
             self.next_x += 1;
             Some(coordinate)
-        }
-        else {
+        } else {
             None
         }
     }
@@ -331,19 +357,23 @@ mod tests {
 
     #[test]
     fn neighbors_iterator() {
-        let iterator: NeighborsIterator<10> = NeighborsIterator::new(Coordinate::new_unchecked(0, 0));
+        let iterator: NeighborsIterator<10> =
+            NeighborsIterator::new(Coordinate::new_unchecked(0, 0));
         let collected: Vec<_> = iterator.collect();
         assert_eq!(collected.len(), 3);
 
-        let iterator: NeighborsIterator<10> = NeighborsIterator::new(Coordinate::new_unchecked(1, 1));
+        let iterator: NeighborsIterator<10> =
+            NeighborsIterator::new(Coordinate::new_unchecked(1, 1));
         let collected: Vec<_> = iterator.collect();
         assert_eq!(collected.len(), 8);
 
-        let iterator: NeighborsIterator<10> = NeighborsIterator::new(Coordinate::new_unchecked(9, 9));
+        let iterator: NeighborsIterator<10> =
+            NeighborsIterator::new(Coordinate::new_unchecked(9, 9));
         let collected: Vec<_> = iterator.collect();
         assert_eq!(collected.len(), 3);
 
-        let iterator: NeighborsIterator<10> = NeighborsIterator::new(Coordinate::new_unchecked(9, 5));
+        let iterator: NeighborsIterator<10> =
+            NeighborsIterator::new(Coordinate::new_unchecked(9, 5));
         let collected: Vec<_> = iterator.collect();
         assert_eq!(collected.len(), 5);
     }
