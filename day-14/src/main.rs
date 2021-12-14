@@ -1,4 +1,8 @@
-use std::{collections::BTreeMap, str::FromStr};
+use std::{
+    collections::{BTreeMap, HashMap},
+    ops::AddAssign,
+    str::FromStr,
+};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let Input {
@@ -6,22 +10,29 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         replacement_rules,
     } = include_str!("input.txt").parse()?;
 
-    let result = solve_a(&polymer, &replacement_rules);
+    let result = solve(&polymer, &replacement_rules, 10);
+    println!("{}", result);
+    let result = solve(&polymer, &replacement_rules, 40);
     println!("{}", result);
 
     Ok(())
 }
 
-fn solve_a(polymer: &Polymer, replacement_rules: &BTreeMap<(char, char), char>) -> usize {
-    let mut polymer = polymer.clone();
-    for _ in 0..10 {
-        polymer = polymer.step(replacement_rules);
+fn solve(
+    polymer: &Polymer,
+    replacement_rules: &BTreeMap<(char, char), char>,
+    iters: usize,
+) -> usize {
+    let mut counter_builder = MemoizingCounterBuilder::new(replacement_rules);
+    let mut counter = Counter::default();
+    for window in polymer.0.windows(2) {
+        let l = window[0];
+        let r = window[1];
+        counter += counter_builder.build_counter(l, r, iters);
     }
+    counter.inc(polymer.0[polymer.0.len() - 1]);
 
-    let mut incidence_map = BTreeMap::new();
-    for ch in polymer.0 {
-        incidence_map.entry(ch).and_modify(|v| *v += 1).or_insert(1);
-    }
+    let incidence_map = counter.0;
     let mut incidence_vec = incidence_map.into_iter().collect::<Vec<_>>();
     incidence_vec.sort_by(|&(_, a), &(_, b)| a.cmp(&b).reverse());
     let most = incidence_vec[0].1;
@@ -80,51 +91,63 @@ impl FromStr for Polymer {
     }
 }
 
-impl Polymer {
-    fn step(&self, replacement_rules: &BTreeMap<(char, char), char>) -> Self {
-        let mut new_vec = Vec::with_capacity(self.0.len() * 2 - 1);
-        for window in self.0.windows(2) {
-            let ch1 = window[0];
-            let ch2 = window[1];
-            new_vec.push(ch1);
-            if let Some(r) = replacement_rules.get(&(ch1, ch2)) {
-                new_vec.push(*r);
-            }
+#[derive(Clone, Default)]
+struct Counter(HashMap<char, usize>);
+
+impl Counter {
+    fn inc(&mut self, ch: char) {
+        self.0.entry(ch).and_modify(|v| *v += 1).or_insert(1);
+    }
+}
+
+impl AddAssign for Counter {
+    fn add_assign(&mut self, rhs: Self) {
+        for (ch, val) in rhs.0 {
+            self.0.entry(ch).and_modify(|v| *v += val).or_insert(val);
         }
-        new_vec.push(self.0[self.0.len() - 1]);
-        Self(new_vec)
+    }
+}
+
+struct MemoizingCounterBuilder<'a> {
+    replacement_rules: &'a BTreeMap<(char, char), char>,
+    memoizer: HashMap<(char, char, usize), Counter>,
+}
+
+impl<'a> MemoizingCounterBuilder<'a> {
+    fn new(replacement_rules: &'a BTreeMap<(char, char), char>) -> Self {
+        Self {
+            replacement_rules,
+            memoizer: HashMap::new(),
+        }
+    }
+
+    /// Build the counts for X-
+    fn build_counter(&mut self, l: char, r: char, depth: usize) -> Counter {
+        if depth == 0 {
+            let mut c = Counter::default();
+            c.inc(l);
+            return c;
+        }
+        if let Some(counter) = self.memoizer.get(&(l, r, depth)) {
+            return counter.clone();
+        }
+
+        let m = *self
+            .replacement_rules
+            .get(&(l, r))
+            .expect("Expected all possible pairs to have a replacement");
+
+        let mut l_counter = self.build_counter(l, m, depth - 1);
+        let r_counter = self.build_counter(m, r, depth - 1);
+        l_counter += r_counter;
+        self.memoizer.insert((l, r, depth), l_counter.clone());
+        l_counter
     }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-
-    #[test]
-    fn test_step() {
-        let input = include_str!("example.txt");
-        let Input {
-            polymer,
-            replacement_rules,
-        } = input.parse().unwrap();
-
-        let after_step_1 = polymer.step(&replacement_rules);
-        assert_eq!(after_step_1, "NCNBCHB".parse().unwrap());
-
-        let after_step_2 = after_step_1.step(&replacement_rules);
-        assert_eq!(after_step_2, "NBCCNBBBCBHCB".parse().unwrap());
-
-        let after_step_3 = after_step_2.step(&replacement_rules);
-        assert_eq!(after_step_3, "NBBBCNCCNBBNBNBBCHBHHBCHB".parse().unwrap());
-
-        let after_step_4 = after_step_3.step(&replacement_rules);
-        assert_eq!(
-            after_step_4,
-            "NBBNBNBBCCNBCNCCNBBNBBNBBBNBBNBBCBHCBHHNHCBBCBHCB"
-                .parse()
-                .unwrap()
-        );
-    }
 
     #[test]
     fn test_solve_a() {
@@ -134,7 +157,7 @@ mod test {
             replacement_rules,
         } = input.parse().unwrap();
 
-        let result = solve_a(&polymer, &replacement_rules);
+        let result = solve(&polymer, &replacement_rules, 10);
         assert_eq!(result, 1588);
     }
 }
