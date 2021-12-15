@@ -1,6 +1,7 @@
 use std::{
     collections::VecDeque,
     ops::{Index, IndexMut},
+    str::FromStr,
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -9,7 +10,57 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let costs = grid.traverse_from(Coordinate::new(0, 0));
     let cost = costs[Coordinate::new(grid.width - 1, grid.height - 1)];
     println!("{}", cost);
+
+    let expanded = grid.expand(5, 5);
+    let costs = expanded.traverse_from(Coordinate::new(0, 0));
+    let cost = costs[Coordinate::new(expanded.width - 1, expanded.height - 1)];
+    println!("{}", cost);
+
     Ok(())
+}
+
+#[derive(Copy, Clone, Debug)]
+struct RiskLevel(u8);
+
+impl RiskLevel {
+    fn value(self) -> usize {
+        self.0 as usize
+    }
+    fn inc(self) -> Self {
+        match self.0 {
+            v if (1..=8).contains(&v) => Self(self.0 + 1),
+            9 => Self(1),
+            _ => unreachable!(),
+        }
+    }
+    fn inc_mul(self, mul: usize) -> Self {
+        let mut new = self;
+        for _ in 0..mul {
+            new = new.inc();
+        }
+        new
+    }
+}
+
+impl FromStr for RiskLevel {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let u8 = s.parse::<u8>().map_err(|err| err.to_string())?;
+        if u8 < 1 {
+            return Err(String::from("Value is less than 1"));
+        }
+        if u8 > 9 {
+            return Err(String::from("Value is greater than 9"));
+        }
+        Ok(Self(u8))
+    }
+}
+
+impl PartialEq<u8> for RiskLevel {
+    fn eq(&self, other: &u8) -> bool {
+        self.0 == *other
+    }
 }
 
 #[derive(Debug)]
@@ -19,12 +70,12 @@ struct Grid<T> {
     values: Vec<T>,
 }
 
-fn parse_input(s: &str) -> Result<Grid<u8>, String> {
-    fn line_to_depths(s: &str) -> Result<Vec<u8>, String> {
+fn parse_input(s: &str) -> Result<Grid<RiskLevel>, String> {
+    fn line_to_depths(s: &str) -> Result<Vec<RiskLevel>, String> {
         s.char_indices()
             .map(|(idx, _)| {
                 let v = &s[idx..][..1];
-                v.parse::<u8>().map_err(|err| err.to_string())
+                v.parse::<RiskLevel>()
             })
             .collect()
     }
@@ -98,7 +149,7 @@ impl<T> Grid<T> {
     }
 }
 
-impl Grid<u8> {
+impl Grid<RiskLevel> {
     pub fn traverse_from(&self, start: Coordinate) -> Grid<usize> {
         let mut values = Vec::new();
         values.resize(self.width * self.height, usize::MAX);
@@ -116,7 +167,7 @@ impl Grid<u8> {
         while let Some(current) = unvisited.pop_front() {
             let current_cost = traversed_grid[current];
             for neighbor_coordinate in self.neighbors(current) {
-                let neighbor_cost = self[neighbor_coordinate] as usize;
+                let neighbor_cost = self[neighbor_coordinate].value();
                 let total_cost = current_cost + neighbor_cost;
                 let previous_best_cost = traversed_grid[neighbor_coordinate];
                 if total_cost < previous_best_cost {
@@ -140,6 +191,58 @@ impl Grid<u8> {
         }
 
         traversed_grid
+    }
+
+    pub fn expand(&self, x: usize, y: usize) -> Grid<RiskLevel> {
+        let expanded = self.expand_x(x);
+        let expanded = expanded.expand_y(y);
+        expanded
+    }
+
+    fn expand_x(&self, n: usize) -> Grid<RiskLevel> {
+        let width = self.width * n;
+        let height = self.height;
+        let mut values = Vec::with_capacity(width * height);
+        values.resize(width * height, self[Coordinate::new(0, 0)]);
+
+        let mut expanded = Grid {
+            width,
+            height,
+            values,
+        };
+
+        for x_mul in 0..n {
+            for coordinate in self.all() {
+                let new_coordinate =
+                    Coordinate::new(coordinate.x + x_mul * self.width, coordinate.y);
+                expanded[new_coordinate] = self[coordinate].inc_mul(x_mul);
+            }
+        }
+
+        expanded
+    }
+
+    fn expand_y(&self, n: usize) -> Grid<RiskLevel> {
+        let width = self.width;
+        let height = self.height * n;
+        let mut values = Vec::with_capacity(width * height);
+        values.resize(width * height, self[Coordinate::new(0, 0)]);
+
+        let mut expanded = Grid {
+            width,
+            height,
+            values,
+        };
+
+        for y_mul in 0..n {
+            for coordinate in self.all() {
+                let new_coordinate =
+                    Coordinate::new(coordinate.x, coordinate.y + y_mul * self.height);
+                expanded[new_coordinate] = self[coordinate].inc_mul(y_mul);
+            }
+        }
+
+        expanded
     }
 }
 
@@ -264,6 +367,23 @@ mod tests {
     fn test_travserse() {
         let subject = parse_input(include_str!("example.txt")).unwrap();
         let costs = subject.traverse_from(Coordinate::new(0, 0));
-        println!("{:?}", costs);
+        assert_eq!(
+            costs[Coordinate::new(subject.width - 1, subject.height - 1)],
+            40
+        );
+    }
+
+    #[test]
+    fn test_expand_by_5() {
+        let subject = parse_input(include_str!("example.txt")).unwrap();
+        let expanded = subject.expand(5, 5);
+        assert_eq!(expanded.width, subject.width * 5);
+        assert_eq!(expanded.height, subject.height * 5);
+        assert_eq!(expanded[Coordinate::new(10, 0)], 2);
+        assert_eq!(expanded[Coordinate::new(19, 3)], 1);
+        assert_eq!(
+            expanded[Coordinate::new(expanded.width - 1, expanded.height - 1)],
+            9
+        );
     }
 }
