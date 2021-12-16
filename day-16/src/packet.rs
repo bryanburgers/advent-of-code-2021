@@ -123,6 +123,8 @@ pub enum Error {
 pub struct Version(u8);
 
 impl Version {
+    pub const BITS: u16 = 3;
+
     pub fn into_u8(self) -> u8 {
         self.0
     }
@@ -133,6 +135,12 @@ impl Version {
 pub struct TypeId(u8);
 
 impl TypeId {
+    pub const BITS: u16 = 3;
+
+    pub fn into_u8(self) -> u8 {
+        self.0
+    }
+
     pub fn is_literal(&self) -> bool {
         self.0 == 4
     }
@@ -149,11 +157,35 @@ pub enum Payload {
     Literal { chunks: u8, value: u64 },
 }
 
+impl Payload {
+    pub fn as_literal(&self) -> Option<u64> {
+        if let Payload::Literal { value, .. } = self {
+            Some(*value)
+        } else {
+            None
+        }
+    }
+
+    pub fn bits(&self) -> u16 {
+        match self {
+            Self::OperatorBitLength(..) => 1 + 15,
+            Self::OperatorPacketLength(..) => 1 + 11,
+            Self::Literal { chunks, .. } => *chunks as u16 * 5,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct Packet {
     pub version: Version,
     pub type_id: TypeId,
     pub payload: Payload,
+}
+
+impl Packet {
+    pub fn bits(&self) -> u16 {
+        Version::BITS + TypeId::BITS + self.payload.bits()
+    }
 }
 
 #[cfg(test)]
@@ -178,6 +210,7 @@ mod tests {
                 },
             }
         );
+        assert_eq!(packet.bits(), 21);
         let packet = packet_parser.next()?;
         assert_eq!(packet, None);
         Ok(())
@@ -196,6 +229,7 @@ mod tests {
                 payload: Payload::OperatorBitLength(27),
             }
         );
+        assert_eq!(packet.bits(), 22);
         let packet = packet_parser.next()?.expect("Expected packet");
         assert_eq!(
             packet,
@@ -238,6 +272,7 @@ mod tests {
                 payload: Payload::OperatorPacketLength(3),
             }
         );
+        assert_eq!(packet.bits(), 18);
         let packet = packet_parser.next()?.expect("Expected packet");
         assert_eq!(
             packet,
