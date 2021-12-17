@@ -51,6 +51,28 @@ fn main() {
     //         }
     //     }
     // }
+
+    // Part 2: Ugh. I'm just gonna try every y between 0 and 139 (because that was the one that
+    // worked for best shot, and x between 1 and 164.
+
+    let mut good_shots = 0;
+    for x in 0..165 {
+        // Actually, we have a fast computer. Just try a bunch of stuff.
+        for y in -1000..1000 {
+            let mut probe = Probe::origin_with_velocity(x, y);
+            loop {
+                probe.step();
+                if target.contains(&probe) {
+                    good_shots += 1;
+                    break;
+                }
+                if probe.pos_y < -140 {
+                    break;
+                }
+            }
+        }
+    }
+    println!("{}", good_shots);
 }
 
 #[derive(Copy, Clone, Debug)]
