@@ -112,13 +112,28 @@ fn main() {
         s![[2, [[5, 5], 2]], [[3, [7, 2]], [[7, 1], 8]]],
         s![[[[2, 4], [6, 8]], [0, [7, 5]]], [[3, [2, 5]], [7, 7]]],
     ];
-    let result = solve_a(input);
+    let result = solve_a(input.clone());
+    println!("{}", result);
+    let result = solve_b(input.clone());
     println!("{}", result);
 }
 
 fn solve_a(input: Vec<SnailfishNumber>) -> usize {
     let result = input.into_iter().reduce(|a, b| a + b).unwrap();
     result.magnitude()
+}
+
+fn solve_b(mut input: Vec<SnailfishNumber>) -> usize {
+    let mut largest_magnitude = 0;
+    while let Some(popped) = input.pop() {
+        for item in &input {
+            let m1 = (popped.clone() + item.clone()).magnitude();
+            let m2 = (item.clone() + popped.clone()).magnitude();
+            let m = std::cmp::max(m1, m2);
+            largest_magnitude = std::cmp::max(largest_magnitude, m);
+        }
+    }
+    largest_magnitude
 }
 
 #[derive(Eq, PartialEq, Clone)]
@@ -433,5 +448,23 @@ mod tests {
         ];
         let result = solve_a(input);
         assert_eq!(result, 4140);
+    }
+
+    #[test]
+    fn test_solve_b() {
+        let input = vec![
+            s![[[0, [5, 8]], [[1, 7], [9, 6]]], [[4, [1, 2]], [[1, 4], 2]]],
+            s![[[5, [2, 8]], 4], [5, [[9, 9], 0]]],
+            s![6, [[[6, 2], [5, 6]], [[7, 6], [4, 7]]]],
+            s![[[6, [0, 7]], [0, 9]], [4, [9, [9, 0]]]],
+            s![[[7, [6, 4]], [3, [1, 3]]], [[[5, 5], 1], 9]],
+            s![[6, [[7, 3], [3, 2]]], [[[3, 8], [5, 7]], 4]],
+            s![[[[5, 4], [7, 7]], 8], [[8, 3], 8]],
+            s![[9, 3], [[9, 9], [6, [4, 9]]]],
+            s![[2, [[7, 7], 7]], [[5, 8], [[9, 3], [0, 2]]]],
+            s![[[[5, 2], 5], [8, [3, 7]]], [[5, [7, 5]], [4, 4]]],
+        ];
+        let result = solve_b(input);
+        assert_eq!(result, 3993);
     }
 }
