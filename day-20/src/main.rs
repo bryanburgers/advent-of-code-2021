@@ -2,17 +2,18 @@ use std::{collections::HashSet, fmt::Debug, str::FromStr};
 
 fn main() {
     let (alg, grid) = parse(include_str!("input.txt")).unwrap();
-    let result = solve_a(&alg, &grid);
+    let result = solve(&alg, &grid, 2);
+    println!("{}", result);
+    let result = solve(&alg, &grid, 50);
     println!("{}", result);
 }
 
-fn solve_a(alg: &ImageEnhancementAlgorithm, grid: &Grid) -> usize {
-    println!("{:?}", grid);
-    let new_grid = alg.step(grid);
-    println!("{:?}", new_grid);
-    let even_newer_grid = alg.step(&new_grid);
-    println!("{:?}", even_newer_grid);
-    even_newer_grid.lit_pixels.len()
+fn solve(alg: &ImageEnhancementAlgorithm, grid: &Grid, n: usize) -> usize {
+    let mut next_grid = alg.step(grid);
+    for _ in 1..n {
+        next_grid = alg.step(&next_grid);
+    }
+    next_grid.lit_pixels.len()
 }
 
 fn parse(input: &str) -> Result<(ImageEnhancementAlgorithm, Grid), &'static str> {
@@ -238,7 +239,14 @@ mod tests {
     #[test]
     fn test_solve_a() {
         let (alg, grid) = parse(include_str!("example.txt")).unwrap();
-        let result = solve_a(&alg, &grid);
+        let result = solve(&alg, &grid, 2);
         assert_eq!(result, 35);
+    }
+
+    #[test]
+    fn test_solve_b() {
+        let (alg, grid) = parse(include_str!("example.txt")).unwrap();
+        let result = solve(&alg, &grid, 50);
+        assert_eq!(result, 3351);
     }
 }
